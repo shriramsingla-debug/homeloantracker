@@ -105,8 +105,8 @@
   .btn.btn-full{ width:100%; }
   .btn-row{ display:flex; gap:10px; margin-top:6px; }
 
-  /* ---------- prepayments ---------- */
-  .prepay-row{
+  /* ---------- prepayments & rate-change rows (shared layout) ---------- */
+  .prepay-row, .rate-row{
     display:grid; grid-template-columns: 1fr 1fr 32px; gap:8px; margin-bottom:8px; align-items:center;
   }
   .prepay-remove{
@@ -186,6 +186,24 @@
   }
   .completion-stats{ flex:1; min-width:200px; display:flex; flex-direction:column; gap:12px; }
 
+  /* ---------- days saved by prepayments (inspiring card) ---------- */
+  .time-saved-card{
+    background:var(--green-soft); border:1px solid var(--green); border-radius:10px;
+    padding:22px; text-align:center; margin-bottom:18px;
+  }
+  .time-saved-card .section-title{ justify-content:center; }
+  .days-saved-number{
+    font-family:'Fraunces',serif; font-weight:700; font-size:clamp(34px,5vw,52px);
+    color:var(--green); letter-spacing:-0.01em; line-height:1.05;
+  }
+  .days-saved-sub{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink-soft); margin-top:6px;
+  }
+  .days-saved-line{
+    font-family:'Fraunces',serif; font-style:italic; font-size:14.5px; color:var(--ink);
+    margin:14px auto 0; max-width:420px; line-height:1.4;
+  }
+
   .warning{
     background:var(--rust-soft); border:1px solid var(--rust); color:var(--rust);
     border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:16px;
@@ -208,6 +226,7 @@
   table.ledger tbody tr:nth-child(odd){ background:rgba(217,207,182,0.18); }
   table.ledger tbody tr.event-prepay{ color:var(--rust); }
   table.ledger tbody tr.event-disb{ color:var(--green); }
+  table.ledger tbody tr.event-rate{ color:var(--gold); font-style:italic; }
   table.ledger tbody tr.event-close td{ font-weight:700; }
 
   .placeholder{
@@ -319,6 +338,14 @@
       </div>
 
       <div class="card">
+        <p class="section-title">Rate changes <span class="tag">optional</span></p>
+        <div id="rateChangeList"></div>
+        <p class="empty-note" id="rateChangeEmptyNote">No rate changes added yet.</p>
+        <button class="btn btn-ghost btn-small" onclick="addRateChangeRow()">+ Add rate change</button>
+        <p class="hint">For floating-rate loans. EMI stays the same — only how much of it goes to interest vs. principal shifts after each change.</p>
+      </div>
+
+      <div class="card">
         <p class="section-title">Outstanding as on <span class="tag">step 2</span></p>
         <div class="field">
           <label for="asOnDate">Calculate outstanding as on date</label>
@@ -378,6 +405,13 @@
           <p class="hint" id="projectionNote" style="display:none;"></p>
         </div>
 
+        <div class="time-saved-card">
+          <p class="section-title">Time saved by your prepayments</p>
+          <div class="days-saved-number" id="daysSavedNumber">—</div>
+          <div class="days-saved-sub" id="daysSavedSub"></div>
+          <p class="days-saved-line" id="daysSavedLine"></p>
+        </div>
+
         <div class="stat-grid">
           <div class="stat green">
             <div class="s-label">Outstanding principal</div>
@@ -415,7 +449,7 @@
     </div>
   </div>
 
-  <footer class="note">Daily interest is computed on the reducing balance using the day-count basis selected above. "Save inputs" stores your data in this browser only, tied to this file — export a backup if you move computers, switch browsers, or want a copy you control. This tool is for estimation — confirm exact figures with your lender's statement.</footer>
+  <footer class="note">Daily interest is computed on the reducing balance using the day-count basis selected above. Add rate changes for floating-rate loans — the EMI stays fixed, only the interest/principal split shifts after each change. "Save inputs" stores your data in this browser only, tied to this file — export a backup if you move computers, switch browsers, or want a copy you control. This tool is for estimation — confirm exact figures with your lender's statement.</footer>
 </div>
 
 <script>
@@ -471,12 +505,44 @@
     document.getElementById('prepayEmptyNote').style.display = has ? 'none' : 'block';
   }
   function getPrepayments(){
-    const rows = document.querySelectorAll('.prepay-row');
+    const rows = document.querySelectorAll('#prepayList .prepay-row');
     const out = [];
     rows.forEach(r=>{
       const dStr = r.querySelector('.pp-date').value;
       const aVal = parseFloat(r.querySelector('.pp-amount').value);
       if(dStr && aVal>0){ out.push({ date: parseISO(dStr), amount: aVal }); }
+    });
+    out.sort((a,b)=> a.date - b.date);
+    return out;
+  }
+
+  // ---------- rate-change rows ----------
+  let rateChangeId = 0;
+  function addRateChangeRow(date, rate){
+    rateChangeId++;
+    const id = 'rc'+rateChangeId;
+    const wrap = document.createElement('div');
+    wrap.className = 'rate-row';
+    wrap.id = id;
+    wrap.innerHTML = `
+      <input type="date" class="rc-date" value="${date||''}">
+      <input type="number" class="rc-rate" placeholder="New rate %" min="0" step="any" value="${rate||''}">
+      <button class="prepay-remove" onclick="document.getElementById('${id}').remove(); refreshRateEmptyNote();">✕</button>
+    `;
+    document.getElementById('rateChangeList').appendChild(wrap);
+    refreshRateEmptyNote();
+  }
+  function refreshRateEmptyNote(){
+    const has = document.getElementById('rateChangeList').children.length > 0;
+    document.getElementById('rateChangeEmptyNote').style.display = has ? 'none' : 'block';
+  }
+  function getRateChanges(){
+    const rows = document.querySelectorAll('#rateChangeList .rate-row');
+    const out = [];
+    rows.forEach(r=>{
+      const dStr = r.querySelector('.rc-date').value;
+      const rVal = parseFloat(r.querySelector('.rc-rate').value);
+      if(dStr && rVal>=0){ out.push({ date: parseISO(dStr), rate: rVal }); }
     });
     out.sort((a,b)=> a.date - b.date);
     return out;
@@ -500,10 +566,11 @@
 
   // ---------- core simulation ----------
   function simulate(opts){
-    const { principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate, dayBasis } = opts;
+    const { principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, rateChanges, asOnDate, dayBasis } = opts;
     let outstanding = principal;
     let accrued = 0;
     let current = new Date(startDate);
+    let currentRate = annualRate;
     let closed = false, closedDate = null;
     let totalInterestPaid = 0, totalPrincipalPaid = 0, emiCount = 0;
     let negativeAmortWarning = false;
@@ -514,9 +581,15 @@
     }];
 
     const preps = prepayments.filter(p=>p.date<=asOnDate).slice();
+    const rchanges = (rateChanges||[]).filter(r=>r.date<=asOnDate).slice().sort((a,b)=>a.date-b.date);
     let prepIdx = 0;
+    let rateIdx = 0;
     let n = 0;
     let nextEmiDate = emiDateForIndex(firstEmiDate, n);
+
+    // tie-break priority when two events land on the same date: rate change
+    // takes effect first, then any prepayment, then the EMI for that day.
+    const priority = { ratechange: 0, prepay: 1, emi: 2 };
 
     let guard = 0;
     while(!closed && guard < 20000){
@@ -526,16 +599,24 @@
       if(prepIdx < preps.length && preps[prepIdx].date <= asOnDate){
         candidates.push({ type:'prepay', date: preps[prepIdx].date, amount: preps[prepIdx].amount });
       }
+      if(rateIdx < rchanges.length && rchanges[rateIdx].date <= asOnDate){
+        candidates.push({ type:'ratechange', date: rchanges[rateIdx].date, rate: rchanges[rateIdx].rate });
+      }
       if(candidates.length===0) break;
-      candidates.sort((a,b)=> a.date - b.date || (a.type==='prepay'? -1: 1));
+      candidates.sort((a,b)=> a.date - b.date || priority[a.type] - priority[b.type]);
       const ev = candidates[0];
 
       const days = daysBetween(current, ev.date);
-      const interestForPeriod = outstanding * (annualRate/100) * days / dayBasis;
+      const interestForPeriod = outstanding * (currentRate/100) * days / dayBasis;
       accrued += interestForPeriod;
       current = ev.date;
 
-      if(ev.type === 'prepay'){
+      if(ev.type === 'ratechange'){
+        ledger.push({ date: ev.date, type:`Rate change → ${ev.rate}%`, cls:'event-rate',
+          interest: interestForPeriod, principal: null, payment: null, balance: outstanding + accrued });
+        currentRate = ev.rate;
+        rateIdx++;
+      } else if(ev.type === 'prepay'){
         const amt = Math.min(ev.amount, outstanding);
         outstanding -= amt;
         ledger.push({ date: ev.date, type:'Prepayment', cls:'event-prepay',
@@ -580,7 +661,7 @@
 
     if(!closed){
       const days = daysBetween(current, asOnDate);
-      const interestForPeriod = outstanding * (annualRate/100) * days / dayBasis;
+      const interestForPeriod = outstanding * (currentRate/100) * days / dayBasis;
       accrued += interestForPeriod;
       current = asOnDate;
     }
@@ -590,7 +671,7 @@
       accruedInterest: accrued,
       totalOutstanding: outstanding + accrued,
       closed, closedDate, ledger, totalInterestPaid, totalPrincipalPaid, emiCount,
-      negativeAmortWarning
+      negativeAmortWarning, finalRate: currentRate
     };
   }
 
@@ -628,16 +709,61 @@
     }
 
     const prepayments = getPrepayments();
-    const result = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate, dayBasis });
+    const rateChanges = getRateChanges();
+    const result = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, rateChanges, asOnDate, dayBasis });
 
     // Run the same loan forward to natural closure (far-future horizon) to get
     // a projected end date, independent of whatever "as on" date was chosen above.
     const horizon = new Date(Date.UTC(startDate.getUTCFullYear() + 60, startDate.getUTCMonth(), startDate.getUTCDate()));
-    const projection = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate: horizon, dayBasis });
+    const projection = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, rateChanges, asOnDate: horizon, dayBasis });
+
+    // Same loan, same rate changes, but with prepayments stripped out — this is the
+    // "what if you'd never made any of those extra payments" baseline, used purely
+    // to show how many days sooner your actual prepayments are getting you done.
+    const noPrepayProjection = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments: [], rateChanges, asOnDate: horizon, dayBasis });
+    let daysSaved = null;
+    if(prepayments.length > 0 && projection.closed && noPrepayProjection.closed){
+      daysSaved = daysBetween(projection.closedDate, noPrepayProjection.closedDate);
+    }
 
     lastResult = result;
     renderResults(result, symbol, asOnDate, projection);
+    renderDaysSaved(prepayments.length > 0, daysSaved);
     saveNow();
+  }
+
+  function renderDaysSaved(hasPrepayments, daysSaved){
+    const numEl = document.getElementById('daysSavedNumber');
+    const subEl = document.getElementById('daysSavedSub');
+    const lineEl = document.getElementById('daysSavedLine');
+
+    if(!hasPrepayments){
+      numEl.textContent = '—';
+      subEl.textContent = '';
+      lineEl.textContent = "You haven't added a prepayment yet — even one extra payment can move this date.";
+      return;
+    }
+    if(daysSaved === null){
+      numEl.textContent = '—';
+      subEl.textContent = '';
+      lineEl.textContent = "Can't project this right now — check that your EMI is enough to cover the interest.";
+      return;
+    }
+    if(daysSaved <= 0){
+      numEl.textContent = '0 days';
+      subEl.textContent = '';
+      lineEl.textContent = "Your prepayments haven't moved the payoff date yet — a bigger or earlier one will.";
+      return;
+    }
+
+    numEl.textContent = daysSaved.toLocaleString('en-US') + ' days';
+    const years = Math.floor(daysSaved / 365.25);
+    const months = Math.round((daysSaved - years * 365.25) / 30.44);
+    const parts = [];
+    if(years > 0) parts.push(years + (years === 1 ? ' year' : ' years'));
+    if(months > 0) parts.push(months + (months === 1 ? ' month' : ' months'));
+    subEl.textContent = parts.length ? '≈ ' + parts.join(' ') + ' sooner' : '';
+    lineEl.textContent = "That's real time back in your life — not just rupees saved.";
   }
 
   function renderResults(result, symbol, asOnDate, projection){
@@ -743,10 +869,15 @@
   const STORAGE_KEY = 'loanLedgerData_v1';
 
   function collectFormData(){
-    const rows = document.querySelectorAll('.prepay-row');
+    const rows = document.querySelectorAll('#prepayList .prepay-row');
     const prepayments = [];
     rows.forEach(r=>{
       prepayments.push({ date: r.querySelector('.pp-date').value, amount: r.querySelector('.pp-amount').value });
+    });
+    const rcRows = document.querySelectorAll('#rateChangeList .rate-row');
+    const rateChanges = [];
+    rcRows.forEach(r=>{
+      rateChanges.push({ date: r.querySelector('.rc-date').value, rate: r.querySelector('.rc-rate').value });
     });
     return {
       currency: document.getElementById('currency').value,
@@ -757,7 +888,8 @@
       emiAmount: document.getElementById('emiAmount').value,
       tenureMonths: document.getElementById('tenureMonths').value,
       dayBasis: document.getElementById('dayBasis').value,
-      prepayments
+      prepayments,
+      rateChanges
     };
   }
 
@@ -774,6 +906,9 @@
     document.getElementById('prepayList').innerHTML = '';
     (data.prepayments || []).forEach(p => addPrepayRow(p.date, p.amount));
     refreshEmptyNote();
+    document.getElementById('rateChangeList').innerHTML = '';
+    (data.rateChanges || []).forEach(r => addRateChangeRow(r.date, r.rate));
+    refreshRateEmptyNote();
   }
 
   function updateSaveStatus(iso){
