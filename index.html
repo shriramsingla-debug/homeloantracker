@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loan Ledger — Outstanding Balance Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F2E8;
+    --paper-deep:#EFE8D7;
+    --rule:#D9CFB6;
+    --rule-soft:#E5DDC8;
+    --ink:#23271F;
+    --ink-soft:#6E6B5C;
+    --card:#FFFEFB;
+    --green:#1E6B4F;
+    --green-soft:#E3EEE8;
+    --rust:#A8472B;
+    --rust-soft:#F3E4DD;
+    --gold:#A9772E;
+    --shadow: 0 1px 2px rgba(35,39,31,0.06), 0 8px 24px rgba(35,39,31,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--rule-soft) 1px, transparent 1px);
+    background-size: 100% 38px;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    padding: 28px 18px 80px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  /* ---------- header ---------- */
+  header.page-head{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px; margin-bottom:28px;
+  }
+  .brand-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:clamp(28px,4vw,40px);
+    margin:0; letter-spacing:-0.01em;
+  }
+  .head-sub{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft);
+    text-align:right; max-width:260px;
+  }
+
+  /* ---------- layout ---------- */
+  .grid{display:grid; grid-template-columns: 380px 1fr; gap:24px; align-items:start;}
+  @media (max-width: 860px){ .grid{grid-template-columns: 1fr;} }
+
+  .card{
+    background:var(--card); border:1px solid var(--rule); border-radius:10px;
+    box-shadow:var(--shadow); padding:22px;
+  }
+  .card + .card{ margin-top:20px; }
+
+  .section-title{
+    font-family:'Fraunces',serif; font-weight:600; font-size:18px; margin:0 0 14px;
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .section-title .tag{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--green);
+    background:var(--green-soft); border-radius:4px; padding:2px 6px; letter-spacing:.05em;
+  }
+
+  label{ display:block; font-size:12.5px; color:var(--ink-soft); margin:0 0 5px; font-weight:500;}
+  .field{ margin-bottom:14px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  input, select{
+    width:100%; font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink);
+    border:1px solid var(--rule); background:#FFFFFF; border-radius:7px;
+    padding:9px 10px; outline:none; transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus{ border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft); }
+  .hint{ font-size:11.5px; color:var(--ink-soft); margin-top:4px; font-family:'Inter',sans-serif;}
+
+  .inline-symbol{ display:flex; gap:8px; }
+  .inline-symbol select{ flex:0 0 64px; }
+
+  .btn{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer;
+    border-radius:7px; padding:10px 16px; border:1px solid var(--ink); background:var(--ink);
+    color:var(--paper); transition:transform .08s ease, opacity .15s;
+  }
+  .btn:hover{ opacity:.88; }
+  .btn:active{ transform:translateY(1px); }
+  .btn.btn-ghost{
+    background:transparent; color:var(--ink); border:1px solid var(--rule);
+  }
+  .btn.btn-ghost:hover{ background:var(--paper-deep); opacity:1; }
+  .btn.btn-small{ padding:6px 10px; font-size:12px; }
+  .btn.btn-full{ width:100%; }
+  .btn-row{ display:flex; gap:10px; margin-top:6px; }
+
+  /* ---------- prepayments ---------- */
+  .prepay-row{
+    display:grid; grid-template-columns: 1fr 1fr 32px; gap:8px; margin-bottom:8px; align-items:center;
+  }
+  .prepay-remove{
+    width:32px; height:32px; border-radius:7px; border:1px solid var(--rule); background:#fff;
+    color:var(--rust); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .prepay-remove:hover{ background:var(--rust-soft); }
+  .empty-note{ font-size:12.5px; color:var(--ink-soft); font-style:italic; margin:4px 0 10px;}
+
+  details.adv{ margin-top:6px; }
+  details.adv summary{ cursor:pointer; font-size:12.5px; color:var(--green); font-weight:600; }
+  details.adv .field{ margin-top:12px; }
+
+  /* ---------- estimate emi mini tool ---------- */
+  .estimate-box{
+    background:var(--paper-deep); border-radius:8px; padding:12px; margin-top:4px; margin-bottom:14px;
+  }
+  .estimate-box .row2{ margin-bottom:8px; }
+
+  /* ---------- results ---------- */
+  .stamp-area{
+    display:flex; gap:22px; align-items:center; flex-wrap:wrap;
+    border-bottom:1px dashed var(--rule); padding-bottom:18px; margin-bottom:18px;
+  }
+  .stamp{
+    border:2px solid var(--rust); color:var(--rust); border-radius:10px; padding:10px 18px;
+    transform:rotate(-2deg); font-family:'JetBrains Mono',monospace; text-align:center;
+    flex-shrink:0; background:rgba(168,71,43,0.04);
+  }
+  .stamp .stamp-label{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; opacity:.85;}
+  .stamp .stamp-date{ font-size:13px; font-weight:700; margin-top:2px;}
+
+  .total-figure{ flex:1; min-width:240px; }
+  .total-figure .tf-label{ font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; }
+  .total-figure .tf-amount{
+    font-family:'Fraunces',serif; font-weight:700; font-size:clamp(30px,4vw,44px); color:var(--ink);
+    letter-spacing:-0.01em;
+  }
+  .status-badge{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; padding:3px 9px; border-radius:20px; margin-top:6px;
+  }
+  .status-active{ background:var(--green-soft); color:var(--green); }
+  .status-closed{ background:var(--rust-soft); color:var(--rust); }
+
+  .stat-grid{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:6px;
+  }
+  @media (max-width: 760px){ .stat-grid{ grid-template-columns: repeat(2,1fr); } }
+  .stat{
+    border:1px solid var(--rule-soft); border-radius:8px; padding:12px;
+    background:var(--paper);
+  }
+  .stat .s-label{ font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px;}
+  .stat .s-value{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:16px; }
+  .stat.green .s-value{ color:var(--green); }
+  .stat.rust .s-value{ color:var(--rust); }
+
+  /* ---------- loan completion card (ring + pending amount + projected end date) ---------- */
+  .completion-card{ border-top:1px dashed var(--rule); border-bottom:1px dashed var(--rule); padding:18px 0; margin-bottom:18px; }
+  .completion-row{ display:flex; align-items:center; gap:26px; flex-wrap:wrap; }
+  .ring-wrap{ position:relative; width:136px; height:136px; flex-shrink:0; margin:0 auto; }
+  .progress-ring{ width:136px; height:136px; transform:rotate(-90deg); display:block; }
+  .ring-track{ fill:none; stroke:var(--rule-soft); stroke-width:12; }
+  .ring-progress{
+    fill:none; stroke:var(--green); stroke-width:12; stroke-linecap:round;
+    transition: stroke-dashoffset 0.7s ease;
+  }
+  .ring-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  .ring-pct{ font-family:'Fraunces',serif; font-weight:700; font-size:27px; color:var(--ink); line-height:1; }
+  .ring-label{
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-soft); margin-top:3px;
+  }
+  .completion-stats{ flex:1; min-width:200px; display:flex; flex-direction:column; gap:12px; }
+
+  .warning{
+    background:var(--rust-soft); border:1px solid var(--rust); color:var(--rust);
+    border-radius:8px; padding:10px 12px; font-size:12.5px; margin-bottom:16px;
+  }
+
+  /* ---------- ledger table ---------- */
+  .ledger-head{ display:flex; justify-content:space-between; align-items:baseline; margin:26px 0 10px;}
+  .ledger-head h2{ font-family:'Fraunces',serif; font-size:16px; margin:0; font-weight:600;}
+  .ledger-wrap{
+    max-height:420px; overflow:auto; border:1px solid var(--rule); border-radius:8px;
+  }
+  table.ledger{ width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:12.5px;}
+  table.ledger thead th{
+    position:sticky; top:0; background:var(--ink); color:var(--paper); text-align:right;
+    padding:9px 10px; font-size:11px; letter-spacing:.04em; text-transform:uppercase; font-weight:600;
+  }
+  table.ledger thead th:first-child, table.ledger thead th:nth-child(2){ text-align:left; }
+  table.ledger td{ padding:8px 10px; text-align:right; border-bottom:1px dashed var(--rule-soft); white-space:nowrap;}
+  table.ledger td:first-child, table.ledger td:nth-child(2){ text-align:left; }
+  table.ledger tbody tr:nth-child(odd){ background:rgba(217,207,182,0.18); }
+  table.ledger tbody tr.event-prepay{ color:var(--rust); }
+  table.ledger tbody tr.event-disb{ color:var(--green); }
+  table.ledger tbody tr.event-close td{ font-weight:700; }
+
+  .placeholder{
+    text-align:center; color:var(--ink-soft); padding:50px 20px; font-size:13.5px;
+  }
+
+  .save-bar{ padding:14px 18px; margin-bottom:20px; }
+  .save-bar-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .save-status{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft); }
+  .save-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  footer.note{
+    text-align:center; color:var(--ink-soft); font-size:11.5px; margin-top:34px;
+    font-family:'JetBrains Mono',monospace;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <div>
+      <p class="brand-eyebrow">Reducing balance · daily interest</p>
+      <h1>Loan Ledger</h1>
+    </div>
+    <div class="head-sub" id="todayLine"></div>
+  </header>
+
+  <div class="card save-bar">
+    <div class="save-bar-row">
+      <div class="save-status" id="saveStatus">No saved data on this browser yet.</div>
+      <div class="save-actions">
+        <button class="btn btn-ghost btn-small" onclick="saveNow()">💾 Save inputs</button>
+        <button class="btn btn-ghost btn-small" onclick="exportJson()">⬇ Export backup</button>
+        <button class="btn btn-ghost btn-small" onclick="document.getElementById('importFile').click()">⬆ Import backup</button>
+        <button class="btn btn-ghost btn-small" onclick="clearSaved()">🗑 Clear saved</button>
+      </div>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="handleImportFile(event)">
+  </div>
+
+  <div class="grid">
+    <!-- ===================== INPUT COLUMN ===================== -->
+    <div>
+      <div class="card">
+        <p class="section-title">Loan details <span class="tag">step 1</span></p>
+
+        <div class="field">
+          <label for="loanAmount">Loan amount (principal)</label>
+          <div class="inline-symbol">
+            <select id="currency">
+              <option value="₹" selected>₹</option>
+              <option value="$">$</option>
+              <option value="€">€</option>
+              <option value="£">£</option>
+            </select>
+            <input type="number" id="loanAmount" placeholder="e.g. 2500000" min="0" step="any">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="rate">Annual interest rate (%)</label>
+            <input type="number" id="rate" placeholder="e.g. 9.25" min="0" step="any">
+          </div>
+          <div class="field">
+            <label for="startDate">Loan start / disbursal date</label>
+            <input type="date" id="startDate">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="firstEmiDate">First EMI date</label>
+            <input type="date" id="firstEmiDate">
+            <p class="hint">Later EMIs recur on the same day each month.</p>
+          </div>
+          <div class="field">
+            <label for="emiAmount">EMI amount</label>
+            <input type="number" id="emiAmount" placeholder="e.g. 24500" min="0" step="any">
+          </div>
+        </div>
+
+        <div class="estimate-box">
+          <label for="tenureMonths" style="margin-bottom:8px;">Don't know your EMI? Estimate it from tenure</label>
+          <div class="row2">
+            <input type="number" id="tenureMonths" placeholder="Tenure in months, e.g. 240">
+            <button class="btn btn-ghost btn-small" onclick="estimateEmi()">Estimate EMI →</button>
+          </div>
+        </div>
+
+        <details class="adv">
+          <summary>Advanced: day-count basis</summary>
+          <div class="field">
+            <label for="dayBasis">Daily interest divisor</label>
+            <select id="dayBasis">
+              <option value="365" selected>Actual / 365 (common in India)</option>
+              <option value="360">Actual / 360</option>
+            </select>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <p class="section-title">Prepayments <span class="tag">optional</span></p>
+        <div id="prepayList"></div>
+        <p class="empty-note" id="prepayEmptyNote">No prepayments added yet.</p>
+        <button class="btn btn-ghost btn-small" onclick="addPrepayRow()">+ Add prepayment</button>
+      </div>
+
+      <div class="card">
+        <p class="section-title">Outstanding as on <span class="tag">step 2</span></p>
+        <div class="field">
+          <label for="asOnDate">Calculate outstanding as on date</label>
+          <input type="date" id="asOnDate">
+          <p class="hint">Defaults to today. Set any date to see balance on that day, including part-period interest.</p>
+        </div>
+        <button class="btn btn-full" onclick="runCalculation()">Calculate outstanding</button>
+      </div>
+    </div>
+
+    <!-- ===================== RESULTS COLUMN ===================== -->
+    <div class="card" id="resultsCard">
+      <div class="placeholder" id="placeholder">
+        Fill in the loan details on the left and press <strong>Calculate outstanding</strong><br>
+        to see your exact balance, including interest accrued since your last EMI.
+      </div>
+
+      <div id="resultsBody" style="display:none;">
+        <div id="warningBox"></div>
+
+        <div class="stamp-area">
+          <div class="stamp">
+            <div class="stamp-label">As on</div>
+            <div class="stamp-date" id="stampDate">—</div>
+          </div>
+          <div class="total-figure">
+            <div class="tf-label">Total amount payable today</div>
+            <div class="tf-amount" id="totalOutstanding">—</div>
+            <span class="status-badge" id="statusBadge"></span>
+          </div>
+        </div>
+
+        <div class="completion-card">
+          <p class="section-title">Loan completion</p>
+          <div class="completion-row">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 136 136" class="progress-ring">
+                <circle cx="68" cy="68" r="58" class="ring-track"></circle>
+                <circle cx="68" cy="68" r="58" class="ring-progress" id="ringProgress"></circle>
+              </svg>
+              <div class="ring-center">
+                <div class="ring-pct" id="ringPct">—</div>
+                <div class="ring-label">paid off</div>
+              </div>
+            </div>
+            <div class="completion-stats">
+              <div class="stat">
+                <div class="s-label">Pending amount</div>
+                <div class="s-value" id="pendingAmount">—</div>
+              </div>
+              <div class="stat">
+                <div class="s-label" id="endDateLabel">Projected end date</div>
+                <div class="s-value" id="projectedEndDate">—</div>
+              </div>
+            </div>
+          </div>
+          <p class="hint" id="projectionNote" style="display:none;"></p>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat green">
+            <div class="s-label">Outstanding principal</div>
+            <div class="s-value" id="statPrincipal">—</div>
+          </div>
+          <div class="stat rust">
+            <div class="s-label">Interest accrued, unpaid</div>
+            <div class="s-value" id="statAccrued">—</div>
+          </div>
+          <div class="stat">
+            <div class="s-label">Principal repaid so far</div>
+            <div class="s-value" id="statPrincipalPaid">—</div>
+          </div>
+          <div class="stat">
+            <div class="s-label">Interest paid so far</div>
+            <div class="s-value" id="statInterestPaid">—</div>
+          </div>
+        </div>
+
+        <div class="ledger-head">
+          <h2>Ledger</h2>
+          <button class="btn btn-ghost btn-small" onclick="exportCsv()">Export CSV</button>
+        </div>
+        <div class="ledger-wrap">
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th>Date</th><th>Event</th><th>Interest</th><th>Principal</th><th>Payment</th><th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">Daily interest is computed on the reducing balance using the day-count basis selected above. "Save inputs" stores your data in this browser only, tied to this file — export a backup if you move computers, switch browsers, or want a copy you control. This tool is for estimation — confirm exact figures with your lender's statement.</footer>
+</div>
+
+<script>
+  // ---------- date helpers (all dates handled as UTC midnight to avoid TZ drift) ----------
+  function parseISO(s){
+    if(!s) return null;
+    const [y,m,d] = s.split('-').map(Number);
+    return new Date(Date.UTC(y, m-1, d));
+  }
+  function toISO(d){ return d.toISOString().slice(0,10); }
+  function fmtDate(d){
+    return d.toLocaleDateString('en-GB',{ day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+  }
+  function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+  function addDaysUTC(d,n){ return new Date(d.getTime()+n*86400000); }
+
+  function lastDayOfMonth(y,m){ return new Date(Date.UTC(y, m+1, 0)).getUTCDate(); }
+  function emiDateForIndex(firstEmiDate, n){
+    const emiDay = firstEmiDate.getUTCDate();
+    const y = firstEmiDate.getUTCFullYear();
+    const m = firstEmiDate.getUTCMonth() + n;
+    const targetY = y + Math.floor(m/12);
+    const targetM = ((m % 12)+12)%12;
+    const day = Math.min(emiDay, lastDayOfMonth(targetY, targetM));
+    return new Date(Date.UTC(targetY, targetM, day));
+  }
+
+  function fmtMoney(amount, symbol){
+    const neg = amount < -0.005;
+    const v = Math.abs(amount);
+    const s = v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    return (neg? '−' : '') + symbol + s;
+  }
+
+  // ---------- prepayment rows ----------
+  let prepayId = 0;
+  function addPrepayRow(date, amount){
+    prepayId++;
+    const id = 'pp'+prepayId;
+    const wrap = document.createElement('div');
+    wrap.className = 'prepay-row';
+    wrap.id = id;
+    wrap.innerHTML = `
+      <input type="date" class="pp-date" value="${date||''}">
+      <input type="number" class="pp-amount" placeholder="Amount" min="0" step="any" value="${amount||''}">
+      <button class="prepay-remove" onclick="document.getElementById('${id}').remove(); refreshEmptyNote();">✕</button>
+    `;
+    document.getElementById('prepayList').appendChild(wrap);
+    refreshEmptyNote();
+  }
+  function refreshEmptyNote(){
+    const has = document.getElementById('prepayList').children.length > 0;
+    document.getElementById('prepayEmptyNote').style.display = has ? 'none' : 'block';
+  }
+  function getPrepayments(){
+    const rows = document.querySelectorAll('.prepay-row');
+    const out = [];
+    rows.forEach(r=>{
+      const dStr = r.querySelector('.pp-date').value;
+      const aVal = parseFloat(r.querySelector('.pp-amount').value);
+      if(dStr && aVal>0){ out.push({ date: parseISO(dStr), amount: aVal }); }
+    });
+    out.sort((a,b)=> a.date - b.date);
+    return out;
+  }
+
+  // ---------- EMI estimator ----------
+  function estimateEmi(){
+    const P = parseFloat(document.getElementById('loanAmount').value);
+    const rate = parseFloat(document.getElementById('rate').value);
+    const n = parseInt(document.getElementById('tenureMonths').value);
+    if(!(P>0) || !(rate>=0) || !(n>0)){
+      alert('Enter loan amount, rate and tenure (months) first.');
+      return;
+    }
+    const r = rate/100/12;
+    let emi;
+    if(r===0){ emi = P/n; }
+    else { emi = P * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1); }
+    document.getElementById('emiAmount').value = emi.toFixed(2);
+  }
+
+  // ---------- core simulation ----------
+  function simulate(opts){
+    const { principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate, dayBasis } = opts;
+    let outstanding = principal;
+    let accrued = 0;
+    let current = new Date(startDate);
+    let closed = false, closedDate = null;
+    let totalInterestPaid = 0, totalPrincipalPaid = 0, emiCount = 0;
+    let negativeAmortWarning = false;
+
+    const ledger = [{
+      date: startDate, type:'Disbursement', cls:'event-disb',
+      interest:0, principal:null, payment:null, balance: outstanding
+    }];
+
+    const preps = prepayments.filter(p=>p.date<=asOnDate).slice();
+    let prepIdx = 0;
+    let n = 0;
+    let nextEmiDate = emiDateForIndex(firstEmiDate, n);
+
+    let guard = 0;
+    while(!closed && guard < 20000){
+      guard++;
+      const candidates = [];
+      if(nextEmiDate <= asOnDate) candidates.push({ type:'emi', date: nextEmiDate });
+      if(prepIdx < preps.length && preps[prepIdx].date <= asOnDate){
+        candidates.push({ type:'prepay', date: preps[prepIdx].date, amount: preps[prepIdx].amount });
+      }
+      if(candidates.length===0) break;
+      candidates.sort((a,b)=> a.date - b.date || (a.type==='prepay'? -1: 1));
+      const ev = candidates[0];
+
+      const days = daysBetween(current, ev.date);
+      const interestForPeriod = outstanding * (annualRate/100) * days / dayBasis;
+      accrued += interestForPeriod;
+      current = ev.date;
+
+      if(ev.type === 'prepay'){
+        const amt = Math.min(ev.amount, outstanding);
+        outstanding -= amt;
+        ledger.push({ date: ev.date, type:'Prepayment', cls:'event-prepay',
+          interest: interestForPeriod, principal: amt, payment: amt, balance: outstanding + accrued });
+        prepIdx++;
+        if(outstanding <= 0.005){
+          outstanding = 0;
+          // Principal is fully repaid, but if interest had already accrued and not
+          // yet collected, the loan isn't truly closed until that's settled too.
+          if(accrued <= 0.005){
+            accrued = 0; closed = true; closedDate = ev.date;
+            ledger.push({ date: ev.date, type:'Loan closed', cls:'event-close',
+              interest:0, principal:null, payment:null, balance:0 });
+          }
+        }
+      } else {
+        const interestComponent = accrued;
+        if(interestComponent > emiAmount) negativeAmortWarning = true;
+        let principalComponent = emiAmount - interestComponent;
+
+        if(principalComponent >= outstanding - 0.005){
+          const actualPayment = outstanding + interestComponent;
+          totalInterestPaid += interestComponent;
+          totalPrincipalPaid += outstanding;
+          emiCount++;
+          ledger.push({ date: ev.date, type:`EMI #${emiCount} (final)`, cls:'event-close',
+            interest: interestComponent, principal: outstanding, payment: actualPayment, balance: 0 });
+          outstanding = 0; accrued = 0; closed = true; closedDate = ev.date;
+        } else {
+          outstanding -= principalComponent;
+          totalInterestPaid += interestComponent;
+          totalPrincipalPaid += principalComponent;
+          accrued = 0;
+          emiCount++;
+          ledger.push({ date: ev.date, type:`EMI #${emiCount}`, cls:'',
+            interest: interestComponent, principal: principalComponent, payment: emiAmount, balance: outstanding });
+          n++;
+          nextEmiDate = emiDateForIndex(firstEmiDate, n);
+        }
+      }
+    }
+
+    if(!closed){
+      const days = daysBetween(current, asOnDate);
+      const interestForPeriod = outstanding * (annualRate/100) * days / dayBasis;
+      accrued += interestForPeriod;
+      current = asOnDate;
+    }
+
+    return {
+      outstandingPrincipal: outstanding,
+      accruedInterest: accrued,
+      totalOutstanding: outstanding + accrued,
+      closed, closedDate, ledger, totalInterestPaid, totalPrincipalPaid, emiCount,
+      negativeAmortWarning
+    };
+  }
+
+  let lastResult = null;
+  let lastSymbol = '₹';
+
+  function runCalculation(){
+    const symbol = document.getElementById('currency').value;
+    lastSymbol = symbol;
+    const principal = parseFloat(document.getElementById('loanAmount').value);
+    const annualRate = parseFloat(document.getElementById('rate').value);
+    const startDate = parseISO(document.getElementById('startDate').value);
+    const firstEmiDate = parseISO(document.getElementById('firstEmiDate').value);
+    const emiAmount = parseFloat(document.getElementById('emiAmount').value);
+    const dayBasis = parseFloat(document.getElementById('dayBasis').value);
+    let asOnDate = parseISO(document.getElementById('asOnDate').value);
+    if(!asOnDate){
+      const t = new Date();
+      asOnDate = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+      document.getElementById('asOnDate').value = toISO(asOnDate);
+    }
+
+    const errors = [];
+    if(!(principal>0)) errors.push('Enter a valid loan amount.');
+    if(!(annualRate>=0)) errors.push('Enter a valid interest rate.');
+    if(!startDate) errors.push('Enter the loan start date.');
+    if(!firstEmiDate) errors.push('Enter the first EMI date.');
+    if(!(emiAmount>0)) errors.push('Enter a valid EMI amount.');
+    if(startDate && firstEmiDate && firstEmiDate < startDate) errors.push('First EMI date must be on or after the start date.');
+    if(startDate && asOnDate < startDate) errors.push('"As on" date must be on or after the start date.');
+
+    if(errors.length){
+      alert(errors.join('\n'));
+      return;
+    }
+
+    const prepayments = getPrepayments();
+    const result = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate, dayBasis });
+
+    // Run the same loan forward to natural closure (far-future horizon) to get
+    // a projected end date, independent of whatever "as on" date was chosen above.
+    const horizon = new Date(Date.UTC(startDate.getUTCFullYear() + 60, startDate.getUTCMonth(), startDate.getUTCDate()));
+    const projection = simulate({ principal, annualRate, startDate, firstEmiDate, emiAmount, prepayments, asOnDate: horizon, dayBasis });
+
+    lastResult = result;
+    renderResults(result, symbol, asOnDate, projection);
+    saveNow();
+  }
+
+  function renderResults(result, symbol, asOnDate, projection){
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('resultsBody').style.display = 'block';
+
+    document.getElementById('stampDate').textContent = fmtDate(asOnDate);
+    document.getElementById('totalOutstanding').textContent =
+      result.closed ? fmtMoney(0, symbol) : fmtMoney(result.totalOutstanding, symbol);
+
+    const badge = document.getElementById('statusBadge');
+    if(result.closed){
+      badge.textContent = 'Closed on ' + fmtDate(result.closedDate);
+      badge.className = 'status-badge status-closed';
+    } else {
+      badge.textContent = 'Active';
+      badge.className = 'status-badge status-active';
+    }
+
+    // ---- Loan completion card: ring, pending amount, projected end date ----
+    const loanAmount = result.ledger[0].balance;
+    const pendingPrincipal = result.closed ? 0 : result.outstandingPrincipal;
+    const paidFraction = result.closed ? 1 : Math.max(0, Math.min(1, (loanAmount - result.outstandingPrincipal) / loanAmount));
+
+    document.getElementById('pendingAmount').textContent = fmtMoney(pendingPrincipal, symbol);
+    document.getElementById('ringPct').textContent = Math.round(paidFraction * 100) + '%';
+
+    const circumference = 2 * Math.PI * 58;
+    const ringEl = document.getElementById('ringProgress');
+    ringEl.style.strokeDasharray = circumference;
+    ringEl.style.strokeDashoffset = circumference * (1 - paidFraction);
+
+    const endLabelEl = document.getElementById('endDateLabel');
+    const endDateEl = document.getElementById('projectedEndDate');
+    const noteEl = document.getElementById('projectionNote');
+    noteEl.style.display = 'none';
+
+    if(result.closed){
+      endLabelEl.textContent = 'Closed on';
+      endDateEl.textContent = fmtDate(result.closedDate);
+    } else if(projection && projection.closed){
+      endLabelEl.textContent = 'Projected end date';
+      endDateEl.textContent = fmtDate(projection.closedDate);
+    } else {
+      endLabelEl.textContent = 'Projected end date';
+      endDateEl.textContent = '—';
+      noteEl.textContent = "At this EMI amount, the loan isn't on track to close within 60 years — the EMI may be too low to cover the interest.";
+      noteEl.style.display = 'block';
+    }
+
+    document.getElementById('statPrincipal').textContent = fmtMoney(result.outstandingPrincipal, symbol);
+    document.getElementById('statAccrued').textContent = fmtMoney(result.accruedInterest, symbol);
+    document.getElementById('statPrincipalPaid').textContent = fmtMoney(result.totalPrincipalPaid, symbol);
+    document.getElementById('statInterestPaid').textContent = fmtMoney(result.totalInterestPaid, symbol);
+
+    const warnBox = document.getElementById('warningBox');
+    warnBox.innerHTML = '';
+    if(result.negativeAmortWarning){
+      const w = document.createElement('div');
+      w.className = 'warning';
+      w.textContent = 'Heads up: your EMI is lower than the interest accruing in at least one period, so the outstanding balance grew during that stretch instead of shrinking.';
+      warnBox.appendChild(w);
+    }
+
+    const tbody = document.getElementById('ledgerBody');
+    tbody.innerHTML = '';
+    result.ledger.forEach(row=>{
+      const tr = document.createElement('tr');
+      if(row.cls) tr.className = row.cls;
+      tr.innerHTML = `
+        <td>${fmtDate(row.date)}</td>
+        <td>${row.type}</td>
+        <td>${row.interest ? fmtMoney(row.interest, symbol) : '—'}</td>
+        <td>${row.principal!=null ? fmtMoney(row.principal, symbol) : '—'}</td>
+        <td>${row.payment!=null ? fmtMoney(row.payment, symbol) : '—'}</td>
+        <td>${fmtMoney(row.balance, symbol)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportCsv(){
+    if(!lastResult){ alert('Run a calculation first.'); return; }
+    const rows = [['Date','Event','Interest','Principal','Payment','Balance']];
+    lastResult.ledger.forEach(r=>{
+      rows.push([
+        fmtDate(r.date), r.type,
+        r.interest? r.interest.toFixed(2):'',
+        r.principal!=null? r.principal.toFixed(2):'',
+        r.payment!=null? r.payment.toFixed(2):'',
+        r.balance.toFixed(2)
+      ]);
+    });
+    const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'loan-ledger.csv';
+    a.click();
+  }
+
+  // ---------- save / restore (localStorage + JSON backup file) ----------
+  const STORAGE_KEY = 'loanLedgerData_v1';
+
+  function collectFormData(){
+    const rows = document.querySelectorAll('.prepay-row');
+    const prepayments = [];
+    rows.forEach(r=>{
+      prepayments.push({ date: r.querySelector('.pp-date').value, amount: r.querySelector('.pp-amount').value });
+    });
+    return {
+      currency: document.getElementById('currency').value,
+      loanAmount: document.getElementById('loanAmount').value,
+      rate: document.getElementById('rate').value,
+      startDate: document.getElementById('startDate').value,
+      firstEmiDate: document.getElementById('firstEmiDate').value,
+      emiAmount: document.getElementById('emiAmount').value,
+      tenureMonths: document.getElementById('tenureMonths').value,
+      dayBasis: document.getElementById('dayBasis').value,
+      prepayments
+    };
+  }
+
+  function populateFormData(data){
+    if(!data) return;
+    document.getElementById('currency').value = data.currency || '₹';
+    document.getElementById('loanAmount').value = data.loanAmount || '';
+    document.getElementById('rate').value = data.rate || '';
+    document.getElementById('startDate').value = data.startDate || '';
+    document.getElementById('firstEmiDate').value = data.firstEmiDate || '';
+    document.getElementById('emiAmount').value = data.emiAmount || '';
+    document.getElementById('tenureMonths').value = data.tenureMonths || '';
+    document.getElementById('dayBasis').value = data.dayBasis || '365';
+    document.getElementById('prepayList').innerHTML = '';
+    (data.prepayments || []).forEach(p => addPrepayRow(p.date, p.amount));
+    refreshEmptyNote();
+  }
+
+  function updateSaveStatus(iso){
+    const el = document.getElementById('saveStatus');
+    if(!iso){ el.textContent = 'No saved data on this browser yet.'; return; }
+    el.textContent = 'Last saved on this browser: ' + new Date(iso).toLocaleString();
+  }
+
+  function saveNow(){
+    try{
+      const data = collectFormData();
+      data.savedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      updateSaveStatus(data.savedAt);
+    }catch(e){
+      alert('Could not save in this browser (storage may be disabled or full): ' + e.message);
+    }
+  }
+
+  function loadSaved(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw){ updateSaveStatus(null); return; }
+      const data = JSON.parse(raw);
+      populateFormData(data);
+      updateSaveStatus(data.savedAt);
+    }catch(e){ updateSaveStatus(null); }
+  }
+
+  function clearSaved(){
+    if(!confirm('Clear saved data from this browser? This cannot be undone.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    updateSaveStatus(null);
+  }
+
+  function exportJson(){
+    const data = collectFormData();
+    data.savedAt = new Date().toISOString();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'loan-ledger-backup.json';
+    a.click();
+  }
+
+  function handleImportFile(evt){
+    const file = evt.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(){
+      try{
+        const data = JSON.parse(reader.result);
+        populateFormData(data);
+        saveNow();
+        alert('Backup imported and saved to this browser.');
+      }catch(e){
+        alert('That file does not look like a valid backup.');
+      }
+    };
+    reader.readAsText(file);
+    evt.target.value = '';
+  }
+
+  // ---------- init ----------
+  (function init(){
+    const t = new Date();
+    const todayUTC = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
+    document.getElementById('todayLine').textContent = 'Today — ' + fmtDate(todayUTC);
+    loadSaved();
+    // "as on" date always defaults to today, even if a previous session saved a different one
+    document.getElementById('asOnDate').value = toISO(todayUTC);
+    refreshEmptyNote();
+  })();
+</script>
+</body>
+</html>
